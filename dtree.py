@@ -1,5 +1,6 @@
 import pandas as pd
 import pydot
+from collections import defaultdict
 
 class dtree(object):
 
@@ -22,6 +23,10 @@ class dtree(object):
             draw(k, k+'_'+v)
 
     def constructTree(self, splits):
+        """
+        splits should be a list of categorical variables.
+        """
+        self.dtree = defaultdict(dict)
 
 
     def visualizeTree(self, output_path='./output.png'):
