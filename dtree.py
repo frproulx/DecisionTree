@@ -1,5 +1,6 @@
 import pandas as pd
 import pydot
+import numpy as np
 from collections import defaultdict
 
 class dtree(object):
@@ -27,6 +28,9 @@ class dtree(object):
         splits should be a list of categorical variables.
         """
         self.dtree = defaultdict(dict)
+        for s in splits:
+            for v in np.unique(self.df[splits].values):
+                self.dtree[v] = dict()
 
 
     def visualizeTree(self, output_path='./output.png'):
