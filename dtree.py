@@ -66,6 +66,13 @@ class decisionNode(object):
         else:
             return 0
 
+    def _visualize(self, graph):
+        if self.children != []:
+            for child in self.children:
+                edge = pydot.Edge(str(self), str(child))
+                graph.add_edge(edge)
+                child._visualize(graph)
+
     def spawn_child(self, qstr):
         """ Creates a child.
         qstr := Marginal query string
@@ -151,34 +158,9 @@ class dtree(object):
             fi.write("Structured as 'leaf details (Number records, Marginal Share, Overall Share)'")
             self.tree._tofile(fi)
 
-
-class Blah(object):
-    def _draw(self, parent_name, child_name):
-        edge = pydot.Edge(parent_name, child_name)
-        graph.add_edge(edge)
-
-    def _visit(self, node, parent=None):
-        for k, v in node.iteritems():
-            if isinstance(v, dict):
-                if parent:
-                    self._draw(parent, k)
-                self._visit(v, k)
-        else:
-            self._draw(parent, k)
-            draw(k, k+'_'+v)
-
-    def constructTree(self, splits):
-        """
-        splits should be a list of categorical variables.
-        """
-        self.dtree = defaultdict(dict)
-        for s in splits:
-            for v in np.unique(self.df[splits].values):
-                self.dtree[v] = dict()
-
-
-    def visualizeTree(self, output_path='./output.png'):
+    def to_png(self, output_path):
+        """ Uses graphviz to make a graph picture
+        output_path := .png for the output"""
         graph = pydot.Dot(graph_type='graph')
-        self._visit(output_tree)
+        self.tree._visualize(graph)
         graph.write_png(output_path)
-        return None
