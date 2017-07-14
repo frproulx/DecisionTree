@@ -8,10 +8,27 @@ crash_data.columns = map(lambda x: x.replace(' ', '_'), crash_data.columns)
 
 reload(dtree)
 tree = dtree.dtree(crash_data)
-tree
-tree.split_tree(['Bike_Facility_Type',
-                'Intersection_or_Non_Intersection_or_Driveway',
-                  'Direction_of_Travel'])
 
-tree
-tree.pretty_print()
+output_folder = 'C:/Users/fproulx/Desktop/MiDOT_Sidepaths/trees/'
+
+tree.data.columns
+
+tree_formulae = [('BikeDirection', ['Intersection_or_Non_Intersection_or_Driveway',
+                                    'Bike_Facility_Type',
+                                    'Direction_of_Travel']),
+                 ('BikeAction', ['Intersection_or_Non_Intersection_or_Driveway',
+                                                     'Bike_Facility_Type',
+                                                     'Bike_Action']),
+                 ('VehicleAction', ['Intersection_or_Non_Intersection_or_Driveway',
+                                                     'Bike_Facility_Type',
+                                                     'Vehicle_action']),
+                 ('CrashType', ['Intersection_or_Non_Intersection_or_Driveway',
+                                                     'Bike_Facility_Type',
+                                                     'Bike_Crash_Type'])]
+
+
+for name, columns in tree_formulae:
+    print name
+    tree.split_tree(columns,
+                    reset=True)
+    tree.to_text(output_folder + name + '.txt')

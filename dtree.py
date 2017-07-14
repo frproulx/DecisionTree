@@ -3,6 +3,8 @@ import pydot
 import numpy as np
 from collections import defaultdict
 
+import xlsxwriter
+
 import itertools
 
 class decisionNode(object):
@@ -22,8 +24,6 @@ class decisionNode(object):
             self.qstr = qstr
 
         self.children = list()
-#        if self.parent is None:
-#        self.query = ' and '.join(self.parent.query, self.qstr)
 
         if df is not None:
             self.df = df
@@ -43,17 +43,22 @@ class decisionNode(object):
         self.depth = self._depth()
 
     def __repr__(self):
-        return "Decision Tree node %s. %d records." % (self.qstr, self.size)
-
-    def _print_children(self):
-        print "%s%s (%d, %0.1f%%, %0.1f%%)" % ('\t'*self.depth,
+        return "%s%s (%d, %0.1f%%, %0.1f%%)" % ('\t'*self.depth,
                                            self.qstr,
                                            self.size,
                                            self.marginal_prob*100.,
                                            self.overall_prob*100.
                                            )
+
+    def _print_children(self):
+        print self
         for child in self.children:
             child._print_children()
+
+    def _tofile(self, file):
+        file.write(str(self) + '\n')
+        for child in self.children:
+            child._tofile(file)
 
     def _depth(self):
         if self.parent is not None:
@@ -96,6 +101,7 @@ class decisionNode(object):
         else:
             return [a for a in self.parent.children if a is not self]
 
+
 class dtree(object):
 
     def __init__(self, data):
@@ -105,6 +111,7 @@ class dtree(object):
         """
         self.data = data
         self.tree = decisionNode(df=self.data.copy())
+
 
     def __repr__(self):
         if self.pretty_print() is not None:
@@ -130,6 +137,19 @@ class dtree(object):
 
     def pretty_print(self):
         self.tree._print_children()
+
+    def to_excel(self, output_name, output_sheet):
+        raise NotImplementedError()
+        if output_name[-5:] != '.xlsx':
+            output_name += '.xlsx'
+        with xlsxwriter.Workbook(output_name) as workbook:
+            worksheet = workbook.add_worksheet(name=output_sheet)
+
+    def to_text(self, file_name):
+        """ Dumps pretty printed tree to <file_name>.txt"""
+        with open(file_name, mode='w') as fi:
+            fi.write("Structured as 'leaf details (Number records, Marginal Share, Overall Share)'")
+            self.tree._tofile(fi)
 
 
 class Blah(object):
