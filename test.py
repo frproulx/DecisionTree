@@ -11,6 +11,8 @@ tree = dtree.dtree(crash_data)
 
 output_folder = 'C:/Users/fproulx/Desktop/MiDOT_Sidepaths/trees/'
 
+tree.data.columns
+
 tree_formulae = [('BikeDirection', ['Intersection_or_Non_Intersection_or_Driveway',
                                     'Bike_Facility_Type',
                                     'Direction_of_Travel']),
@@ -22,7 +24,7 @@ tree_formulae = [('BikeDirection', ['Intersection_or_Non_Intersection_or_Drivewa
                                                      'Vehicle_action']),
                  ('CrashType', ['Intersection_or_Non_Intersection_or_Driveway',
                                                      'Bike_Facility_Type',
-                                                     'Bike_Crash_Type'])]
+                                                     'Bike_Crash_Coding'])]
 
 
 for name, columns in tree_formulae:
@@ -30,4 +32,4 @@ for name, columns in tree_formulae:
     tree.split_tree(columns,
                     reset=True)
     tree.to_text(output_folder + name + '.txt')
-    tree.to_png(output_folder + name + '.png')
+#    tree.to_png(output_folder + name + '.pdf')

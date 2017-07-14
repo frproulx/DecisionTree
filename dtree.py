@@ -66,12 +66,13 @@ class decisionNode(object):
         else:
             return 0
 
-    def _visualize(self, graph):
+    def _visualize(self):
+        edges = []
         if self.children != []:
             for child in self.children:
-                edge = pydot.Edge(str(self), str(child))
-                graph.add_edge(edge)
-                child._visualize(graph)
+                edges.append(pydot.Edge(str(self), str(child)))
+                edges.extend(child._visualize())
+        return edges
 
     def spawn_child(self, qstr):
         """ Creates a child.
@@ -83,6 +84,7 @@ class decisionNode(object):
         if dtype == 'cat':
             if type(split_var) == tuple:
                 raise TypeError()
+            self.df[split_var] = self.df[split_var].astype(str)
             for v in np.unique(self.df[split_var]):
                 qstr = "%s == '%s'" % (split_var, str(v))
                 self.spawn_child(qstr)
@@ -162,5 +164,7 @@ class dtree(object):
         """ Uses graphviz to make a graph picture
         output_path := .png for the output"""
         graph = pydot.Dot(graph_type='graph')
-        self.tree._visualize(graph)
-        graph.write_png(output_path)
+        edges = self.tree._visualize()
+        for e in edges:
+            graph.add_edge(e)
+        graph.write(output_path)
