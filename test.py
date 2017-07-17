@@ -26,6 +26,9 @@ tree_formulae = [('BikeDirection', ['Intersection_or_Non_Intersection_or_Drivewa
                                                      'Bike_Facility_Type',
                                                      'Bike_Crash_Coding'])]
 
+tree.split_tree(tree_formulae[0][1])
+tree.root._terminal_children()
+
 
 for name, columns in tree_formulae:
     print name

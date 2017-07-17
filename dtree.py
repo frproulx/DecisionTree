@@ -24,6 +24,7 @@ class decisionNode(object):
             self.qstr = qstr
 
         self.children = list()
+        self.n_terminal = 0
 
         if df is not None:
             self.df = df
@@ -51,22 +52,57 @@ class decisionNode(object):
                                            )
 
     def _print_children(self):
+        """Prints out the children of this node."""
         print self
         for child in self.children:
             child._print_children()
 
     def _tofile(self, file):
+        """Utility function for writing a node to a text file."""
         file.write(str(self) + '\n')
         for child in self.children:
             child._tofile(file)
 
+    def _toexcel(self):
+        """Prepare the data in the node for Excel writing."""
+        if self.n_terminal == 0:
+            height = 1
+        else:
+            height = self.n_terminal
+
+        # Needs the leaf description, number of records, marginal share, tot share,
+        # height,
+        excel_outputs = {'N': self.size,
+                         'marg': self.marginal_prob,
+                         'comp': self.overall_prob,
+                         'height': height,
+                         'depth': self.depth}
+        if self.qstr is None:
+            excel_outputs['desc'] = 'All Data'
+        else:
+            excel_outputs['desc'] = self.qstr
+        return excel_outputs
+
     def _depth(self):
+        """Calculate depth of this node."""
         if self.parent is not None:
             return self.parent._depth() + 1
         else:
             return 0
 
+    def _terminal_children(self):
+        """Count number of terminal children under this node."""
+        self.n_terminal = 0
+        if self.children != []:
+            for child in self.children:
+                child._terminal_children()
+            if self.parent is not None:
+                self.parent.n_terminal += self.n_terminal
+        else:
+            self.parent.n_terminal += 1
+
     def _visualize(self):
+        """Make a set of pydot Edges for all links."""
         edges = []
         if self.children != []:
             for child in self.children:
@@ -75,7 +111,7 @@ class decisionNode(object):
         return edges
 
     def spawn_child(self, qstr):
-        """ Creates a child.
+        """ Create a child.
         qstr := Marginal query string
         """
         self.children.append(decisionNode(self, qstr))
@@ -119,7 +155,7 @@ class dtree(object):
         data := The full dataset in a Pandas Dataframe
         """
         self.data = data
-        self.tree = decisionNode(df=self.data.copy())
+        self.root = decisionNode(df=self.data.copy())
 
 
     def __repr__(self):
@@ -129,7 +165,7 @@ class dtree(object):
             return "A decision tree that has yet to be constructed."
 
     def _reset(self):
-        self.tree = decisionNode(df=self.data.copy())
+        self.root = decisionNode(df=self.data.copy())
 
     def split_tree(self, split_vars, reset=False):
         """Construct the tree splits
@@ -141,14 +177,15 @@ class dtree(object):
         # TODO implement the split_vars for continuous variables to take cut points
         for s in split_vars:
             # This needs to go to the deepest children and do the splits
-            for c in self.tree.find_bottom():
+            for c in self.root.find_bottom():
                 c.spawn_children(s)
 
     def pretty_print(self):
-        self.tree._print_children()
+        self.root._print_children()
 
     def to_excel(self, output_name, output_sheet):
         raise NotImplementedError()
+        self.root._terminal_children()
         if output_name[-5:] != '.xlsx':
             output_name += '.xlsx'
         with xlsxwriter.Workbook(output_name) as workbook:
@@ -158,13 +195,13 @@ class dtree(object):
         """ Dumps pretty printed tree to <file_name>.txt"""
         with open(file_name, mode='w') as fi:
             fi.write("Structured as 'leaf details (Number records, Marginal Share, Overall Share)'")
-            self.tree._tofile(fi)
+            self.root._tofile(fi)
 
     def to_png(self, output_path):
         """ Uses graphviz to make a graph picture
         output_path := .png for the output"""
         graph = pydot.Dot(graph_type='graph')
-        edges = self.tree._visualize()
+        edges = self.root._visualize()
         for e in edges:
             graph.add_edge(e)
         graph.write(output_path)
