@@ -63,25 +63,47 @@ class decisionNode(object):
         for child in self.children:
             child._tofile(file)
 
-    def _toexcel(self):
+    def _toexcel(self, worksheet, depth_used):
         """Prepare the data in the node for Excel writing."""
         if self.n_terminal == 0:
             height = 1
         else:
             height = self.n_terminal
 
+        start_col = self.depth * 4
+        start_row = depth_used[self.depth]
         # Needs the leaf description, number of records, marginal share, tot share,
         # height,
-        excel_outputs = {'N': self.size,
-                         'marg': self.marginal_prob,
-                         'comp': self.overall_prob,
-                         'height': height,
-                         'depth': self.depth}
-        if self.qstr is None:
-            excel_outputs['desc'] = 'All Data'
+        if height == 1:
+            if self.qstr is None:
+                worksheet.write(start_row, start_col, 'All Data')
+            else:
+                worksheet.write(start_row, start_col, self.qstr)
+            worksheet.write(start_row, start_col + 1, self.size)
+            worksheet.write(start_row, start_col + 2,
+                                  self.marginal_prob)
+            worksheet.write(start_row, start_col + 3,
+                                  self.overall_prob)
+
         else:
-            excel_outputs['desc'] = self.qstr
-        return excel_outputs
+            if self.qstr is None:
+                worksheet.merge_range(start_row, start_col,
+                                      start_row + self.n_terminal, start_col, 'All Data')
+            else:
+                worksheet.merge_range(start_row, start_col,
+                                      start_row + self.n_terminal, start_col, self.qstr)
+            worksheet.merge_range(start_row, start_col + 1,
+                                  start_row + self.n_terminal, start_col + 1, self.size)
+            worksheet.merge_range(start_row, start_col + 2,
+                                  start_row + self.n_terminal, start_col + 2,
+                                  self.marginal_prob)
+            worksheet.merge_range(start_row, start_col + 3,
+                                  start_row + self.n_terminal, start_col + 3,
+                                  self.overall_prob)
+        depth_used[self.depth] += height
+        if self.n_terminal != 0:
+            for child in self.children:
+                child._toexcel(worksheet, depth_used)
 
     def _depth(self):
         """Calculate depth of this node."""
@@ -175,6 +197,7 @@ class dtree(object):
         """
         self._reset()
         # TODO implement the split_vars for continuous variables to take cut points
+        # TODO accept splitting constraints
         for s in split_vars:
             # This needs to go to the deepest children and do the splits
             for c in self.root.find_bottom():
@@ -184,12 +207,19 @@ class dtree(object):
         self.root._print_children()
 
     def to_excel(self, output_name, output_sheet):
-        raise NotImplementedError()
+        """Write a tree to an excel sheet.
+
+        output_name := Path to the workbook
+        output_sheet := Name for the worksheet
+        """
+        depth_used = defaultdict(int)
         self.root._terminal_children()
         if output_name[-5:] != '.xlsx':
             output_name += '.xlsx'
         with xlsxwriter.Workbook(output_name) as workbook:
             worksheet = workbook.add_worksheet(name=output_sheet)
+            self.root._toexcel(worksheet, depth_used)
+
 
     def to_text(self, file_name):
         """ Dumps pretty printed tree to <file_name>.txt"""
