@@ -6,6 +6,7 @@ import numpy as np
 from collections import defaultdict
 
 import xlsxwriter
+from xlsxwriter.utility import xl_rowcol_to_cell
 
 import itertools
 
@@ -79,19 +80,45 @@ class decisionNode(object):
         start_col = self.depth * 4
         if depth_used[self.depth] == 1:
             worksheet.write(0, start_col, self.var)
+            worksheet.write(0, start_col + 1, 'N')
+            worksheet.write(0, start_col + 2, 'Marginal Share')
+            worksheet.write(0, start_col + 3, 'Overall Share')
         start_row = depth_used[self.depth]
-        if self.parent is not None:
-            print self.val, self.parent.val, self.depth, depth_used[self.depth]
-        # Needs the leaf description, number of records, marginal share, tot share,
-        # height,
+        self.start_row = start_row
 
+        # Needs the leaf description, number of records, marginal share,
+        # tot share, height,
+        marg_prob_function = '=%s/%s'  # String for writing marg calc
+        overall_prob_function = '=%s*%s'
+        if self.parent is None:
+            parent_start_row = self.start_row
+            parent_start_col = start_col
+        else:
+            parent_start_row = self.parent.start_row
+            parent_start_col = start_col - 4
         if height == 1:
             worksheet.write(start_row, start_col, self.val, merge_format)
             worksheet.write(start_row, start_col + 1, self.size, merge_format)
             worksheet.write(start_row, start_col + 2,
-                                  self.marginal_prob, pct_format)
-            worksheet.write(start_row, start_col + 3,
-                                  self.overall_prob, pct_format)
+                            marg_prob_function %
+                            (xl_rowcol_to_cell(self.start_row,
+                                               start_col+1),
+                             xl_rowcol_to_cell(parent_start_row,
+                                               parent_start_col+1)),
+                            pct_format)
+            if parent_start_col == start_col:
+                worksheet.write(start_row, start_col + 3,
+                                '=%s' % xl_rowcol_to_cell(start_row,
+                                                          start_col + 2),
+                                pct_format)
+            else:
+                worksheet.write(start_row, start_col + 3,
+                            overall_prob_function %
+                            (xl_rowcol_to_cell(self.start_row,
+                                               start_col + 2),
+                             xl_rowcol_to_cell(parent_start_row,
+                                               parent_start_col+3)),
+                                               pct_format)
 
         else:
             worksheet.merge_range(start_row, start_col,
@@ -102,10 +129,26 @@ class decisionNode(object):
                                   self.size, merge_format)
             worksheet.merge_range(start_row, start_col + 2,
                                   start_row + height - 1, start_col + 2,
-                                  self.marginal_prob, pct_format)
-            worksheet.merge_range(start_row, start_col + 3,
-                                  start_row + height - 1, start_col + 3,
-                                  self.overall_prob, pct_format)
+                                  marg_prob_function %
+                                  (xl_rowcol_to_cell(self.start_row,
+                                                     start_col+1),
+                                   xl_rowcol_to_cell(parent_start_row,
+                                                     parent_start_col+1)),
+                                  pct_format)
+            if parent_start_col == start_col:
+                worksheet.merge_range(start_row, start_col + 3,
+                                      start_row + height - 1, start_col + 3,
+                                      '=%s' % xl_rowcol_to_cell(start_row,
+                                                                start_col + 2))
+            else:
+                worksheet.merge_range(start_row, start_col + 3,
+                                      start_row + height - 1, start_col + 3,
+                                      overall_prob_function %
+                                      (xl_rowcol_to_cell(self.start_row,
+                                                         start_col + 2),
+                                       xl_rowcol_to_cell(parent_start_row,
+                                                         parent_start_col+3)),
+                                                         pct_format)
         depth_used[self.depth] += height
         if self.n_terminal != 0:
             for child in self.children:
@@ -212,7 +255,7 @@ class dtree(object):
     def pretty_print(self):
         self.root._print_children()
 
-    def to_excel(self, output_name, output_sheet):
+    def to_excel(self, output_name, output_sheet, highlight_leaves=True):
         """Write a tree to an excel sheet.
 
         output_name := Path to the workbook
@@ -235,6 +278,17 @@ class dtree(object):
         worksheet = workbook.add_worksheet(name=output_sheet)
         self.root._toexcel(worksheet, merge_format, pct_format)
 
+        if highlight_leaves:
+            for d in depth_used.keys():
+                if d == 0:
+                    continue
+                worksheet.conditional_format(1, d*4+3,
+                                             depth_used[d], d*4+3,
+                                             {'type': '2_color_scale',
+                                              'min_type': 'min',
+                                              'max_type': 'max',
+                                              'min_color': 'white',
+                                              'max_color': 'red'})
         workbook.close()
 
 

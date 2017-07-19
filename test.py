@@ -32,7 +32,6 @@ tree_formulae = [('BikeDirection', ['Intersection_or_Non_Intersection_or_Drivewa
 tree.split_tree(tree_formulae[0][1])
 tree.to_excel('./test.xlsx', 'test')
 
-
 for name, columns in tree_formulae:
     print name
     tree.split_tree(columns,
