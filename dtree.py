@@ -277,6 +277,7 @@ class dtree(object):
         #    output_name += '.xlsx'
         worksheet = workbook.add_worksheet(name=output_sheet)
         self.root._toexcel(worksheet, merge_format, pct_format)
+        worksheet.freeze_panes(1, 0)
 
         if highlight_leaves:
             for d in depth_used.keys():
@@ -292,7 +293,7 @@ class dtree(object):
         if closeit:
             workbook.close()
 
-    def many_trees_to_excel(self, defdict, workbook):
+    def many_trees_to_excel(self, defdict, workbook, closeit=True):
         """ Generate many trees and write them to a common Excel workbook.
 
         defdict := dictionary with keys as sheet names and values as list of
@@ -303,8 +304,10 @@ class dtree(object):
             print name
             self.split_tree(cols, reset=True)
             self.to_excel(workbook, name, closeit=False)
-
-        workbook.close()
+        if closeit:
+            workbook.close()
+        else:
+            return workbook
 
     def to_text(self, file_name):
         """ Dumps pretty printed tree to <file_name>.txt"""
