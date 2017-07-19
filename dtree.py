@@ -255,13 +255,13 @@ class dtree(object):
     def pretty_print(self):
         self.root._print_children()
 
-    def to_excel(self, output_name, output_sheet, highlight_leaves=True):
+    def to_excel(self, workbook, output_sheet,
+                 highlight_leaves=True, closeit=True):
         """Write a tree to an excel sheet.
 
-        output_name := Path to the workbook
+        workbook := An xlsxwriter.workbook
         output_sheet := Name for the worksheet
         """
-        workbook = xlsxwriter.Workbook(output_name)
         merge_format = workbook.add_format({'align': 'center',
                                             'valign': 'vcenter'})
         pct_format = workbook.add_format({'align': 'center',
@@ -273,8 +273,8 @@ class dtree(object):
         depth_used = defaultdict(lambda: 1)
 
         self.root._terminal_children()
-        if output_name[-5:] != '.xlsx':
-            output_name += '.xlsx'
+        #if output_name[-5:] != '.xlsx':
+        #    output_name += '.xlsx'
         worksheet = workbook.add_worksheet(name=output_sheet)
         self.root._toexcel(worksheet, merge_format, pct_format)
 
@@ -289,8 +289,22 @@ class dtree(object):
                                               'max_type': 'max',
                                               'min_color': 'white',
                                               'max_color': 'red'})
-        workbook.close()
+        if closeit:
+            workbook.close()
 
+    def many_trees_to_excel(self, defdict, workbook):
+        """ Generate many trees and write them to a common Excel workbook.
+
+        defdict := dictionary with keys as sheet names and values as list of
+                   columns to construct the tree
+        workbook_path := name of the workbook
+        """
+        for name, cols in defdict.iteritems():
+            print name
+            self.split_tree(cols, reset=True)
+            self.to_excel(workbook, name, closeit=False)
+
+        workbook.close()
 
     def to_text(self, file_name):
         """ Dumps pretty printed tree to <file_name>.txt"""
