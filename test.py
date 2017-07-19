@@ -1,7 +1,10 @@
 import dtree
+import numpy as np
 import pandas as pd
 
-crash_data = pd.read_excel('C:/Users/fproulx/Desktop/MiDOT_Sidepaths/20170706_Kent and Oakland data.xlsx',
+import jenkspy
+
+crash_data = pd.read_excel('C:/Users/fproulx/Working/MiDOT_Sidepaths/20170706_Kent and Oakland data.xlsx',
                            sheetname='Raw cleaned', skiprows=2)
 
 crash_data.columns = map(lambda x: x.replace(' ', '_'), crash_data.columns)

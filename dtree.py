@@ -1,3 +1,5 @@
+"""This is the main module for making manual decision trees."""
+
 import pandas as pd
 import pydot
 import numpy as np
@@ -20,8 +22,12 @@ class decisionNode(object):
         self.parent = parent
         if self.parent is None:
             self.qstr = ""
+            self.var = 'All data'
+            self.val = 'All data'
         else:
             self.qstr = qstr
+            self.var, self.val = self.qstr.split(' == ')
+            self.val = self.val.strip("'")
 
         self.children = list()
         self.n_terminal = 0
@@ -63,47 +69,47 @@ class decisionNode(object):
         for child in self.children:
             child._tofile(file)
 
-    def _toexcel(self, worksheet, depth_used):
+    def _toexcel(self, worksheet, merge_format, pct_format):
         """Prepare the data in the node for Excel writing."""
+        global depth_used
         if self.n_terminal == 0:
             height = 1
         else:
             height = self.n_terminal
-
         start_col = self.depth * 4
+        if depth_used[self.depth] == 1:
+            worksheet.write(0, start_col, self.var)
         start_row = depth_used[self.depth]
+        if self.parent is not None:
+            print self.val, self.parent.val, self.depth, depth_used[self.depth]
         # Needs the leaf description, number of records, marginal share, tot share,
         # height,
+
         if height == 1:
-            if self.qstr is None:
-                worksheet.write(start_row, start_col, 'All Data')
-            else:
-                worksheet.write(start_row, start_col, self.qstr)
-            worksheet.write(start_row, start_col + 1, self.size)
+            worksheet.write(start_row, start_col, self.val, merge_format)
+            worksheet.write(start_row, start_col + 1, self.size, merge_format)
             worksheet.write(start_row, start_col + 2,
-                                  self.marginal_prob)
+                                  self.marginal_prob, pct_format)
             worksheet.write(start_row, start_col + 3,
-                                  self.overall_prob)
+                                  self.overall_prob, pct_format)
 
         else:
-            if self.qstr is None:
-                worksheet.merge_range(start_row, start_col,
-                                      start_row + self.n_terminal, start_col, 'All Data')
-            else:
-                worksheet.merge_range(start_row, start_col,
-                                      start_row + self.n_terminal, start_col, self.qstr)
+            worksheet.merge_range(start_row, start_col,
+                                      start_row + height - 1, start_col,
+                                      self.val, merge_format)
             worksheet.merge_range(start_row, start_col + 1,
-                                  start_row + self.n_terminal, start_col + 1, self.size)
+                                  start_row + height - 1, start_col + 1,
+                                  self.size, merge_format)
             worksheet.merge_range(start_row, start_col + 2,
-                                  start_row + self.n_terminal, start_col + 2,
-                                  self.marginal_prob)
+                                  start_row + height - 1, start_col + 2,
+                                  self.marginal_prob, pct_format)
             worksheet.merge_range(start_row, start_col + 3,
-                                  start_row + self.n_terminal, start_col + 3,
-                                  self.overall_prob)
+                                  start_row + height - 1, start_col + 3,
+                                  self.overall_prob, pct_format)
         depth_used[self.depth] += height
         if self.n_terminal != 0:
             for child in self.children:
-                child._toexcel(worksheet, depth_used)
+                child._toexcel(worksheet, merge_format, pct_format)
 
     def _depth(self):
         """Calculate depth of this node."""
@@ -212,13 +218,24 @@ class dtree(object):
         output_name := Path to the workbook
         output_sheet := Name for the worksheet
         """
-        depth_used = defaultdict(int)
+        workbook = xlsxwriter.Workbook(output_name)
+        merge_format = workbook.add_format({'align': 'center',
+                                            'valign': 'vcenter'})
+        pct_format = workbook.add_format({'align': 'center',
+                                          'valign': 'vcenter'
+                                          })
+        pct_format.set_num_format('0.0%')
+
+        global depth_used
+        depth_used = defaultdict(lambda: 1)
+
         self.root._terminal_children()
         if output_name[-5:] != '.xlsx':
             output_name += '.xlsx'
-        with xlsxwriter.Workbook(output_name) as workbook:
-            worksheet = workbook.add_worksheet(name=output_sheet)
-            self.root._toexcel(worksheet, depth_used)
+        worksheet = workbook.add_worksheet(name=output_sheet)
+        self.root._toexcel(worksheet, merge_format, pct_format)
+
+        workbook.close()
 
 
     def to_text(self, file_name):
