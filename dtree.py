@@ -10,8 +10,10 @@ from xlsxwriter.utility import xl_rowcol_to_cell
 
 import itertools
 
+
 class decisionNode(object):
     newid = itertools.count().next
+
     def __init__(self, parent=None, qstr=None, df=None):
         """A decision tree node.
 
@@ -45,18 +47,18 @@ class decisionNode(object):
             self.marginal_prob = float(1.)
             self.overall_prob = float(1.)
         else:
-            self.marginal_prob = float(self.size)/float(self.parent.size)
+            self.marginal_prob = float(self.size) / float(self.parent.size)
             self.overall_prob = self.marginal_prob * self.parent.marginal_prob
 
         self.depth = self._depth()
 
     def __repr__(self):
-        return "%s%s (%d, %0.1f%%, %0.1f%%)" % ('\t'*self.depth,
-                                           self.qstr,
-                                           self.size,
-                                           self.marginal_prob*100.,
-                                           self.overall_prob*100.
-                                           )
+        return "%s%s (%d, %0.1f%%, %0.1f%%)" % ('\t' * self.depth,
+                                                self.qstr,
+                                                self.size,
+                                                self.marginal_prob * 100.,
+                                                self.overall_prob * 100.
+                                                )
 
     def _print_children(self):
         """Prints out the children of this node."""
@@ -70,14 +72,15 @@ class decisionNode(object):
         for child in self.children:
             child._tofile(file)
 
-    def _toexcel(self, worksheet, merge_format, pct_format):
+    def _toexcel(self, worksheet, merge_format, pct_format, datadict):
         """Prepare the data in the node for Excel writing."""
-        global depth_used
+        global depth_used  # This is for location tracking
         if self.n_terminal == 0:
             height = 1
         else:
             height = self.n_terminal
         start_col = self.depth * 4
+        # Write the header
         if depth_used[self.depth] == 1:
             worksheet.write(0, start_col, self.var)
             worksheet.write(0, start_col + 1, 'N')
@@ -86,8 +89,19 @@ class decisionNode(object):
         start_row = depth_used[self.depth]
         self.start_row = start_row
 
-        # Needs the leaf description, number of records, marginal share,
-        # tot share, height,
+        # Make pretty versions of the value names
+        if datadict is not None:
+            if self.var in datadict.keys():
+                thisdict = datadict[self.var]
+                if self.val in thisdict.keys():
+                    pretty_val = thisdict[self.val]
+                else:
+                    pretty_val = self.val
+            else:
+                pretty_val = self.val
+        else:
+            pretty_val = self.val
+
         marg_prob_function = '=%s/%s'  # String for writing marg calc
         overall_prob_function = '=%s*%s'
         if self.parent is None:
@@ -97,14 +111,14 @@ class decisionNode(object):
             parent_start_row = self.parent.start_row
             parent_start_col = start_col - 4
         if height == 1:
-            worksheet.write(start_row, start_col, self.val, merge_format)
+            worksheet.write(start_row, start_col, pretty_val, merge_format)
             worksheet.write(start_row, start_col + 1, self.size, merge_format)
             worksheet.write(start_row, start_col + 2,
                             marg_prob_function %
                             (xl_rowcol_to_cell(self.start_row,
-                                               start_col+1),
+                                               start_col + 1),
                              xl_rowcol_to_cell(parent_start_row,
-                                               parent_start_col+1)),
+                                               parent_start_col + 1)),
                             pct_format)
             if parent_start_col == start_col:
                 worksheet.write(start_row, start_col + 3,
@@ -113,17 +127,17 @@ class decisionNode(object):
                                 pct_format)
             else:
                 worksheet.write(start_row, start_col + 3,
-                            overall_prob_function %
-                            (xl_rowcol_to_cell(self.start_row,
-                                               start_col + 2),
-                             xl_rowcol_to_cell(parent_start_row,
-                                               parent_start_col+3)),
-                                               pct_format)
+                                overall_prob_function %
+                                (xl_rowcol_to_cell(self.start_row,
+                                                   start_col + 2),
+                                 xl_rowcol_to_cell(parent_start_row,
+                                                   parent_start_col + 3)),
+                                pct_format)
 
         else:
             worksheet.merge_range(start_row, start_col,
-                                      start_row + height - 1, start_col,
-                                      self.val, merge_format)
+                                  start_row + height - 1, start_col,
+                                  pretty_val, merge_format)
             worksheet.merge_range(start_row, start_col + 1,
                                   start_row + height - 1, start_col + 1,
                                   self.size, merge_format)
@@ -131,9 +145,9 @@ class decisionNode(object):
                                   start_row + height - 1, start_col + 2,
                                   marg_prob_function %
                                   (xl_rowcol_to_cell(self.start_row,
-                                                     start_col+1),
+                                                     start_col + 1),
                                    xl_rowcol_to_cell(parent_start_row,
-                                                     parent_start_col+1)),
+                                                     parent_start_col + 1)),
                                   pct_format)
             if parent_start_col == start_col:
                 worksheet.merge_range(start_row, start_col + 3,
@@ -147,12 +161,12 @@ class decisionNode(object):
                                       (xl_rowcol_to_cell(self.start_row,
                                                          start_col + 2),
                                        xl_rowcol_to_cell(parent_start_row,
-                                                         parent_start_col+3)),
-                                                         pct_format)
+                                                         parent_start_col + 3)),
+                                      pct_format)
         depth_used[self.depth] += height
         if self.n_terminal != 0:
             for child in self.children:
-                child._toexcel(worksheet, merge_format, pct_format)
+                child._toexcel(worksheet, merge_format, pct_format, datadict)
 
     def _depth(self):
         """Calculate depth of this node."""
@@ -188,21 +202,12 @@ class decisionNode(object):
         self.children.append(decisionNode(self, qstr))
 
     def spawn_children(self, split_var, split_vals=None, dtype='cat'):
-        if dtype == 'cat':
-            if type(split_var) == tuple:
-                raise TypeError()
-            self.df[split_var] = self.df[split_var].astype(str)
-            for v in np.unique(self.df[split_var]):
-                qstr = "%s == '%s'" % (split_var, str(v))
-                self.spawn_child(qstr)
-
-        elif dtype == 'cont':
-            # TODO implement this with pd.cut and create a categorical
-            if type(split_vals) != list:  # if cont, should be cut points
-                raise TypeError()
-            raise NotImplementedError()
-        else:
-            raise NotImplementedError()
+        if type(split_var) == tuple:
+            raise TypeError()
+        self.df[split_var] = self.df[split_var].astype(str)
+        for v in np.unique(self.df[split_var]):
+            qstr = "%s == '%s'" % (split_var, str(v))
+            self.spawn_child(qstr)
 
     def find_bottom(self):
         if self.children == []:
@@ -226,8 +231,8 @@ class dtree(object):
         data := The full dataset in a Pandas Dataframe
         """
         self.data = data
+        self.columns = self.data.columns
         self.root = decisionNode(df=self.data.copy())
-
 
     def __repr__(self):
         if self.pretty_print() is not None:
@@ -256,11 +261,13 @@ class dtree(object):
         self.root._print_children()
 
     def to_excel(self, workbook, output_sheet,
-                 highlight_leaves=True, closeit=True):
+                 highlight_leaves=True, closeit=True, datadict=None):
         """Write a tree to an excel sheet.
 
         workbook := An xlsxwriter.workbook
         output_sheet := Name for the worksheet
+        datadict := a nested dictionary of variable names, value names,
+                    and replacement values for pretty output
         """
         merge_format = workbook.add_format({'align': 'center',
                                             'valign': 'vcenter'})
@@ -273,18 +280,18 @@ class dtree(object):
         depth_used = defaultdict(lambda: 1)
 
         self.root._terminal_children()
-        #if output_name[-5:] != '.xlsx':
+        # if output_name[-5:] != '.xlsx':
         #    output_name += '.xlsx'
         worksheet = workbook.add_worksheet(name=output_sheet)
-        self.root._toexcel(worksheet, merge_format, pct_format)
+        self.root._toexcel(worksheet, merge_format, pct_format, datadict)
         worksheet.freeze_panes(1, 0)
 
         if highlight_leaves:
             for d in depth_used.keys():
                 if d == 0:
                     continue
-                worksheet.conditional_format(1, d*4+3,
-                                             depth_used[d], d*4+3,
+                worksheet.conditional_format(1, d * 4 + 3,
+                                             depth_used[d], d * 4 + 3,
                                              {'type': '2_color_scale',
                                               'min_type': 'min',
                                               'max_type': 'max',
@@ -293,7 +300,8 @@ class dtree(object):
         if closeit:
             workbook.close()
 
-    def many_trees_to_excel(self, defdict, workbook, closeit=True):
+    def many_trees_to_excel(self, defdict, workbook, closeit=True,
+                            datadict=None):
         """ Generate many trees and write them to a common Excel workbook.
 
         defdict := dictionary with keys as sheet names and values as list of
@@ -303,7 +311,7 @@ class dtree(object):
         for name, cols in defdict.iteritems():
             print name
             self.split_tree(cols, reset=True)
-            self.to_excel(workbook, name, closeit=False)
+            self.to_excel(workbook, name, closeit=False, datadict=datadict)
         if closeit:
             workbook.close()
         else:
@@ -312,7 +320,8 @@ class dtree(object):
     def to_text(self, file_name):
         """ Dumps pretty printed tree to <file_name>.txt"""
         with open(file_name, mode='w') as fi:
-            fi.write("Structured as 'leaf details (Number records, Marginal Share, Overall Share)'")
+            fi.write(
+                "Structured as 'leaf details (Number records, Marginal Share, Overall Share)'")
             self.root._tofile(fi)
 
     def to_png(self, output_path):
